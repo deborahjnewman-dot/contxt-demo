@@ -301,40 +301,53 @@ async function generateBrief() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Search for the most recent information available. Prioritize sources from 2026. Return ONLY the JSON object. Max 3 items per section, each text field under 25 words.`}]
+        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Search for the most recent information available. Prioritize sources from 2026. Return ONLY the JSON object. Max 3 items per section, each text field under 25 words.` }]
       })
     });
 
-    clearInterval(statusInterval);
-    document.getElementById('loadingScreen').classList.remove('visible');
+    if (!response.ok) throw new Error('Server error: ' + response.status);
 
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullText = '';
 
-    const data = await response.json();
-    
-    // Handle API errors
-    if (data.error) throw new Error('API: ' + data.error.message);
-    if (!data.content) throw new Error('No content in response: ' + JSON.stringify(data).substring(0, 200));
-    
-    const fullText = data.content
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join('');
-
-    // Extract JSON - clean it up first
-    let jsonMatch = fullText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON in response');
-    let jsonStr = jsonMatch[0];
-    // Fix common JSON issues from the model
-    jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-    let brief;
-    try {
-      brief = JSON.parse(jsonStr);
-    } catch(e) {
-      // Try to extract partial JSON
-      throw new Error('Brief format error - please try again');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (!data) continue;
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'progress') {
+            fullText += parsed.text;
+          } else if (parsed.type === 'done') {
+            fullText = parsed.fullText;
+          } else if (parsed.type === 'error') {
+            throw new Error('API: ' + parsed.message);
+          }
+        } catch(e) {
+          if (e.message && e.message.startsWith('API:')) throw e;
+        }
+      }
     }
 
+    let brief;
+    try {
+      brief = JSON.parse(fullText.trim());
+    } catch(e1) {
+      const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON in response');
+      brief = JSON.parse(jsonMatch[0]);
+    }
+
+    clearInterval(statusInterval);
+    document.getElementById('loadingScreen').classList.remove('visible');
     renderBrief(brief);
 
   } catch (err) {
@@ -345,327 +358,3 @@ async function generateBrief() {
     alert('Error: ' + err.message);
     console.error(err);
   }
-}
-
-function renderBrief(b) {
-  const deck = document.getElementById('deck');
-  const prog = document.getElementById('prog');
-  deck.innerHTML = '';
-  prog.innerHTML = '';
-
-  const sections = [
-    { key: 'cover', dark: true, color: 'rgba(247,244,239,0.45)' },
-    { key: 'confirmed', dark: false, color: '#52B788' },
-    { key: 'claimed', dark: false, color: '#C9A84C' },
-    { key: 'disputed', dark: false, color: '#D97706' },
-    { key: 'unknown', dark: false, color: '#7DB8E8' },
-    { key: 'sources', dark: true, color: 'rgba(247,244,239,0.45)' },
-  ];
-
-  sections.forEach((s, i) => {
-    const seg = document.createElement('div');
-    seg.className = `prog-seg ${s.dark ? 'dark-bg' : 'light-bg'}`;
-    seg.id = `ps${i}`;
-    seg.innerHTML = `<div class="prog-fill" style="background:${s.color}"></div>`;
-    prog.appendChild(seg);
-  });
-
-  // SLIDE 1: COVER
-  const statusData = [
-    { key: 'c', color: '#52B788', label: 'Confirmed', facts: b.confirmed?.facts || [] },
-    { key: 'cl', color: '#C9A84C', label: 'Claimed', facts: b.claimed?.positions || [] },
-    { key: 'd', color: '#D97706', label: 'Disputed', facts: b.disputed?.fights || [] },
-    { key: 'u', color: '#7DB8E8', label: 'Unknown', facts: b.unknown?.gaps || [] },
-  ];
-
-  const barSegs = statusData.map(s => `<div class="sb-seg" style="flex:${Math.max(1, s.facts.length)};background:${s.color};"></div>`).join('');
-  const barLabels = statusData.map(s => `<div class="sb-lbl" style="flex:${Math.max(1, s.facts.length)};color:${s.color};">${s.label}</div>`).join('');
-
-  const summaryRows = [
-    { color: '#52B788', label: 'Confirmed', text: b.confirmed?.facts?.[0] ? `<strong>${b.confirmed.facts[0].bold}</strong> ${b.confirmed.facts[0].text}` : 'See confirmed facts', slide: 1 },
-    { color: '#C9A84C', label: 'Claimed', text: b.claimed?.positions?.[0] ? `<strong>${b.claimed.positions[0].bold}</strong> ${b.claimed.positions[0].text}` : 'See claims', slide: 2 },
-    { color: '#D97706', label: 'Disputed', text: b.disputed?.fights?.[0] ? `<strong>${b.disputed.fights[0].question}</strong>` : 'See disputes', slide: 3 },
-    { color: '#7DB8E8', label: 'Unknown', text: b.unknown?.gaps?.[0] ? `<strong>${b.unknown.gaps[0].bold}</strong> ${b.unknown.gaps[0].text}` : 'See unknowns', slide: 4 },
-  ].map(r => `
-    <div class="sum-row" onclick="goTo(${r.slide})">
-      <span class="sum-lbl" style="color:${r.color};">${r.label}</span>
-      <span class="sum-txt">${r.text}</span>
-    </div>`).join('');
-
-  addSlide(deck, 0, 's-dark', `
-    <div class="cover-tag">${b.tag || 'Breaking News'}</div>
-    <h1 class="cover-title">${b.topic}</h1>
-    <div class="status-bar-wrap">
-      <div class="status-bar">${barSegs}</div>
-      <div class="status-labels">${barLabels}</div>
-    </div>
-    <div class="summary-rows">${summaryRows}</div>
-    <div class="cover-hint">→ Tap a section or swipe to read</div>
-  `);
-
-  // SLIDE 2: CONFIRMED
-  const confirmedFacts = (b.confirmed?.facts || []).map(f => `
-    <div class="fact fact-c">
-      <div class="bar bar-c"></div>
-      <div>
-        <p class="ftxt"><strong>${f.bold}</strong> ${f.text}</p>
-        <p class="fsrc"><a href="${f.url || '#'}" target="_blank">${f.source}</a></p>
-      </div>
-    </div>`).join('');
-
-  addSlide(deck, 1, 's-light', `
-    <div class="sec-header">
-      <span class="sec-dot" style="background:var(--c-dot)"></span>
-      <span class="sec-lbl" style="color:var(--c-col)">Confirmed</span>
-      <div class="sec-rule"></div>
-    </div>
-    <div class="sec-hl">${b.confirmed?.headline || 'What the record shows'}</div>
-    <div class="facts">${confirmedFacts}</div>
-  `);
-
-  // SLIDE 3: CLAIMED
-  const claimedPositions = (b.claimed?.positions || []).map(p => `
-    <div class="fact fact-cl">
-      <div class="bar bar-cl"></div>
-      <div>
-        <p class="ftxt"><strong>${p.bold}</strong> ${p.text}</p>
-        ${p.quote ? `<div class="qcard qc-cl"><p>"${p.quote}"</p><p class="attr">- ${p.attribution}</p></div>` : ''}
-        <p class="fsrc"><a href="${p.url || '#'}" target="_blank">${p.source}</a></p>
-      </div>
-    </div>`).join('');
-
-  addSlide(deck, 2, 's-light', `
-    <div class="sec-header">
-      <span class="sec-dot" style="background:var(--cl-dot)"></span>
-      <span class="sec-lbl" style="color:var(--cl-col)">Claimed</span>
-      <div class="sec-rule"></div>
-    </div>
-    <div class="sec-hl">${b.claimed?.headline || 'What each side says'}</div>
-    <div class="facts">${claimedPositions}</div>
-  `);
-
-  // SLIDE 4: DISPUTED
-  const disputes = (b.disputed?.fights || []).map(f => `
-    <div class="fact fact-d" style="display:block;padding:10px 14px;">
-      <p class="disp-q">${f.question}</p>
-      <div class="disp-pos">
-        <div class="bar bar-d"></div>
-        <div><p class="ftxt" style="margin:0;">${f.side1}</p><p class="fsrc"><a href="${f.side1_url || '#'}" target="_blank">${f.side1_source}</a></p></div>
-      </div>
-      <div class="disp-div"></div>
-      <div class="disp-pos">
-        <div class="bar bar-d"></div>
-        <div><p class="ftxt" style="margin:0;">${f.side2}</p><p class="fsrc"><a href="${f.side2_url || '#'}" target="_blank">${f.side2_source}</a></p></div>
-      </div>
-    </div>`).join('');
-
-  addSlide(deck, 3, 's-light', `
-    <div class="sec-header">
-      <span class="sec-dot" style="background:var(--d-dot)"></span>
-      <span class="sec-lbl" style="color:var(--d-col)">Disputed</span>
-      <div class="sec-rule"></div>
-    </div>
-    <div class="sec-hl">${b.disputed?.headline || 'The core fights'}</div>
-    <div class="facts">${disputes}</div>
-  `);
-
-  // SLIDE 5: UNKNOWN
-  const unknowns = (b.unknown?.gaps || []).map(g => `
-    <div class="fact fact-u">
-      <div class="bar bar-u"></div>
-      <div>
-        <p class="ftxt"><strong>${g.bold}</strong> ${g.text}</p>
-        ${g.source ? `<p class="fsrc"><a href="${g.url || '#'}" target="_blank">${g.source}</a></p>` : ''}
-      </div>
-    </div>`).join('');
-
-  addSlide(deck, 4, 's-light', `
-    <div class="sec-header">
-      <span class="sec-dot" style="background:var(--u-dot)"></span>
-      <span class="sec-lbl" style="color:var(--u-col)">Unknown</span>
-      <div class="sec-rule"></div>
-    </div>
-    <div class="sec-hl">${b.unknown?.headline || 'What no one can answer yet'}</div>
-    <div class="facts">${unknowns}</div>
-  `);
-
-  // SLIDE 6: SOURCES
-  const sourceList = (b.sources || []).map(s => `
-    <div class="src-item">
-      <span class="src-n">${s.flag}</span>
-      <span class="src-t"><a href="${s.url || '#'}" target="_blank">${s.name}</a></span>
-    </div>`).join('');
-
-  addSlide(deck, 5, 's-dark', `
-    <div class="src-lbl">About this brief</div>
-    <p class="src-principle">When <strong>news is breaking</strong> and you don't know <strong>what's true</strong> or <strong>who to trust</strong>, Contxt cuts through the confusion. We give you the <strong>facts</strong>, <strong>on-demand</strong> and in <strong>real time</strong>. The opinion is yours.</p>
-    <div class="src-list">${sourceList}</div>
-    <div class="src-btns">
-      <button class="sbtn sbtn-copy" onclick="copyLink()">⎘ Copy link</button>
-      <button class="sbtn sbtn-new" onclick="newBrief()">New brief</button>
-    </div>
-  `);
-
-  document.getElementById('screen-brief').classList.add('visible');
-  window._briefSlides = deck.querySelectorAll('.slide');
-  window._briefTotal = 6;
-  window._briefCur = 0;
-  // Force first slide visible immediately
-  const firstSlide = deck.querySelector('.slide');
-  if (firstSlide) {
-    firstSlide.classList.add('active');
-    firstSlide.style.opacity = '1';
-    firstSlide.style.pointerEvents = 'auto';
-  }
-  setTimeout(() => goTo(0), 100);
-}
-
-function addSlide(deck, i, cls, html) {
-  const s = document.createElement('div');
-  s.className = `slide ${cls}`;
-  s.dataset.i = i;
-  s.innerHTML = html;
-  deck.appendChild(s);
-}
-
-let cur = 0, tx = 0, ty = 0, drag = false;
-
-function goTo(n) {
-  const slides = document.querySelectorAll('.slide');
-  const total = slides.length;
-  if (n < 0 || n >= total || n === cur) return;
-
-  slides[cur].style.opacity = '0';
-  const old = cur;
-  setTimeout(() => { 
-    slides[old].classList.remove('active'); 
-    slides[old].style.opacity = ''; 
-    slides[old].style.pointerEvents = '';
-  }, 450);
-
-  cur = n;
-  slides[cur].classList.add('active');
-
-  const DARK = new Set([0, 5]);
-  const dark = DARK.has(cur);
-  const fills = document.querySelectorAll('.prog-fill');
-  const segs = document.querySelectorAll('.prog-seg');
-
-  segs.forEach((s, i) => {
-    s.className = `prog-seg ${dark ? 'dark-bg' : 'light-bg'}`;
-    const f = fills[i];
-    f.style.transition = 'none';
-    f.style.width = i <= cur ? '100%' : '0%';
-    if (i === cur) requestAnimationFrame(() => { f.style.transition = 'width 0.3s ease'; });
-  });
-
-  const logo = document.getElementById('logo');
-  const snum = document.getElementById('snum');
-  const prev = document.getElementById('prev');
-  const next = document.getElementById('next');
-
-  logo.style.color = dark ? 'rgba(247,244,239,0.6)' : '';
-  snum.style.color = dark ? 'rgba(247,244,239,0.6)' : '';
-  prev.className = `nbtn ${dark ? 'nbtn-dark' : 'nbtn-light'}`;
-  next.className = `nbtn ${dark ? 'nbtn-dark' : 'nbtn-light'}`;
-  snum.textContent = `${cur + 1} / ${total}`;
-  prev.disabled = cur === 0;
-  next.disabled = cur === total - 1;
-}
-
-function nav(d) { goTo(cur + d); }
-
-function newBrief() {
-  document.getElementById('screen-brief').classList.remove('visible');
-  document.getElementById('screen-input').classList.remove('hidden');
-  document.getElementById('topicInput').value = '';
-  document.getElementById('genBtn').disabled = false;
-  cur = 0;
-}
-
-function copyLink() {
-  navigator.clipboard.writeText(window.location.href).catch(() => {});
-  const b = document.querySelector('.sbtn-copy');
-  b.textContent = '✓ Copied';
-  setTimeout(() => { b.textContent = '⎘ Copy link'; }, 2000);
-}
-
-// Touch + keyboard nav
-document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; drag = true; }, { passive: true });
-document.addEventListener('touchend', e => {
-  if (!drag) return; drag = false;
-  const dx = e.changedTouches[0].clientX - tx;
-  const dy = e.changedTouches[0].clientY - ty;
-  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) nav(dx < 0 ? 1 : -1);
-}, { passive: true });
-document.addEventListener('click', e => {
-  if (!document.getElementById('screen-brief').classList.contains('visible')) return;
-  if (e.target.closest('a,button,.sum-row,.sbtn')) return;
-  const x = e.clientX / window.innerWidth;
-  if (x < 0.25) nav(-1); else if (x > 0.75) nav(1);
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nav(1);
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') nav(-1);
-});
-document.getElementById('topicInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') generateBrief();
-});
-
-const DEMO_BRIEF = {
-  "topic": "U.S. Drug Boat Strikes",
-  "tag": "Operation Southern Spear · U.S. Military · Latin America",
-  "confirmed": {
-    "headline": "What the record shows",
-    "facts": [
-      { "bold": "205 people killed", "text": "in 50+ U.S. military strikes since Sept. 2025. No names, nationalities, or evidence of drug cargo released for any strike.", "source": "SOUTHCOM · AP tally, May 31, 2026", "url": "https://www.southcom.mil" },
-      { "bold": "Colombia suspended intelligence sharing with the U.S.", "text": "and withdrew its ambassador in Nov. 2025, cutting off a decades-long counternarcotics partnership.", "source": "AP · NBC News, Nov. 2025", "url": "https://www.nbcnews.com" },
-      { "bold": "Families of two dead civilians are suing the U.S. for wrongful death.", "text": "Both were Trinidadian farm workers with no confirmed links to drug activity.", "source": "ACLU · Center for Constitutional Rights, Jan. 2026", "url": "https://www.aclu.org" }
-    ]
-  },
-  "claimed": {
-    "headline": "What each side says",
-    "positions": [
-      { "bold": "The Trump administration says the strikes are a legal war on narco-terrorists", "text": "and that drug flows by sea are down 97%.", "quote": "These are narco-terrorists killing Americans. We will find them and we will destroy them.", "attribution": "Sec. of Defense Pete Hegseth, Pentagon briefing, Oct. 2025", "source": "Pentagon · SOUTHCOM statements", "url": "https://www.defense.gov" },
-      { "bold": "Colombia's President Petro calls it murder and a violation of international law,", "text": "saying innocent civilians have been killed.", "quote": "All the same, it is murder. The U.S. government's strategy violates the norms of international law.", "attribution": "President Gustavo Petro, posted on X, Oct. 2025", "source": "CBS News exclusive · Petro on X", "url": "https://www.cbsnews.com" }
-    ]
-  },
-  "disputed": {
-    "headline": "The two core fights",
-    "fights": [
-      { "question": "Are the strikes legal under international law?", "side1": "DOJ declared the strikes a legal armed conflict.", "side1_source": "Human Rights Watch, Dec. 2025", "side1_url": "https://www.hrw.org", "side2": "UN, HRW, ACLU agree: killing at sea without trial is extrajudicial execution.", "side2_source": "Just Security", "side2_url": "https://www.justsecurity.org" },
-      { "question": "Are the strikes reducing drug supply to the U.S.?", "side1": "Coast Guard seizures up 200%, drug flows by sea down 97%.", "side1_source": "SOUTHCOM, FY2025", "side1_url": "https://www.southcom.mil", "side2": "Border seizures up 16%, street prices unchanged. Both cite real numbers measuring different things.", "side2_source": "The Intercept, May 2026", "side2_url": "https://theintercept.com" }
-    ]
-  },
-  "unknown": {
-    "headline": "What no one can answer yet",
-    "gaps": [
-      { "bold": "Who was killed.", "text": "The identities of those killed have not been released. No names, nationalities, or evidence of drug cargo has been made available for any strike.", "source": "", "url": "" },
-      { "bold": "What intelligence justified each strike.", "text": "The basis for each strike has not been made public. U.S. announcements state 'intelligence confirmed' with no further detail.", "source": "", "url": "" },
-      { "bold": "Whether the strikes will face legal review.", "text": "The ACLU lawsuit Burnley v. U.S. would be the first domestic court ruling on their legality. Ongoing.", "source": "ACLU · CCR", "url": "https://www.aclu.org" }
-    ]
-  },
-  "sources": [
-    { "flag": "🇺🇸", "name": "U.S. Southern Command, official strike announcements", "url": "https://www.southcom.mil" },
-    { "flag": "🇺🇳", "name": "UN High Commissioner for Human Rights, Oct. 2025", "url": "https://www.ohchr.org" },
-    { "flag": "🌎", "name": "Human Rights Watch, legal analysis, Dec. 2025", "url": "https://www.hrw.org" },
-    { "flag": "🇨🇴", "name": "President Gustavo Petro, CBS News exclusive", "url": "https://www.cbsnews.com" },
-    { "flag": "🇺🇸", "name": "ACLU, Burnley v. U.S. complaint, Jan. 2026", "url": "https://www.aclu.org" },
-    { "flag": "🇺🇸", "name": "The Intercept, drug supply analysis, May 2026", "url": "https://theintercept.com" }
-  ]
-};
-
-function loadDemo() {
-  const topic = "U.S. Drug Boat Strikes";
-  document.getElementById('screen-input').classList.add('hidden');
-  document.getElementById('loadingTopic').textContent = topic;
-  document.getElementById('loadingScreen').classList.add('visible');
-  document.getElementById('loadingStatus').textContent = 'Loading demo brief';
-  setTimeout(() => {
-    document.getElementById('loadingScreen').classList.remove('visible');
-    renderBrief(DEMO_BRIEF);
-  }, 2000);
-}
-</script>
-</body>
-</html>
