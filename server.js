@@ -55,7 +55,7 @@ const server = http.createServer((req, res) => {
         model: 'claude-sonnet-4-6',
         max_tokens: 4096,
         system: parsed.system,
-        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }],
+        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 1 }],
         messages: parsed.messages
       });
 
