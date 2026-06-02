@@ -35,7 +35,7 @@ exports.handler = async function(event, context) {
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
     system: body.system,
-    tools: [{ type: 'web_search_20260209', name: 'web_search' }],
+    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 1 }],
     messages: body.messages
   };
 
