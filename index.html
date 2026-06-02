@@ -330,11 +330,8 @@ async function generateBrief() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-opus-4-7-20260416',
-        max_tokens: 3000,
         system: SYSTEM_PROMPT,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Search for current, credible sources. Structure everything as the JSON format specified. Be thorough but concise.` }]
+        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Use your knowledge of current events and credible sources. Structure everything as the JSON format specified. Be thorough but concise. Include real, verifiable URLs.` }]
       })
     });
 
