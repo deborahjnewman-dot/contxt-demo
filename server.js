@@ -104,7 +104,7 @@ const server = http.createServer((req, res) => {
                   res.write(`data: ${JSON.stringify({ type: 'error', message: parsed.error?.message || 'API error' })}\n\n`);
                   res.end();
                 }
-              } catch(e) { /* skip unparseable lines */ }
+              } catch(e) { /* skip */ }
             }
           }
         });
