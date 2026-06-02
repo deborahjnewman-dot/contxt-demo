@@ -17,7 +17,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Serve index.html
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
     const filePath = path.join(__dirname, 'index.html');
     fs.readFile(filePath, (err, data) => {
@@ -62,7 +61,6 @@ const server = http.createServer((req, res) => {
         }
       };
 
-      // Set up streaming response
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -70,44 +68,43 @@ const server = http.createServer((req, res) => {
         'Access-Control-Allow-Origin': '*'
       });
 
-      // Send a heartbeat every 15 seconds to keep connection alive
       const heartbeat = setInterval(() => {
         res.write(': heartbeat\n\n');
       }, 15000);
 
       const apiReq = https.request(options, (apiRes) => {
         let fullText = '';
+        let inTextBlock = false;
 
         apiRes.on('data', chunk => {
           const lines = chunk.toString().split('\n');
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') continue;
-              try {
-                const parsed = JSON.parse(data);
-                // Collect text deltas
-                if (parsed.type === 'content_block_delta') {
-                  const text = parsed.delta?.text || parsed.delta?.partial_json || '';
-                  if (text) {
-                    fullText += text;
-                    res.write(`data: ${JSON.stringify({ type: 'progress', text })}\n\n`);
-                  }
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            try {
+              const evt = JSON.parse(data);
+              if (evt.type === 'content_block_start') {
+                inTextBlock = evt.content_block?.type === 'text';
+              }
+              if (evt.type === 'content_block_delta' && inTextBlock) {
+                const text = evt.delta?.text || '';
+                if (text) {
+                  fullText += text;
+                  res.write(`data: ${JSON.stringify({ type: 'progress', text })}\n\n`);
                 }
-                // Stream done
-                if (parsed.type === 'message_stop') {
-                  clearInterval(heartbeat);
-                  res.write(`data: ${JSON.stringify({ type: 'done', fullText })}\n\n`);
-                  res.end();
-                }
-                // Handle errors
-                if (parsed.type === 'error') {
-                  clearInterval(heartbeat);
-                  res.write(`data: ${JSON.stringify({ type: 'error', message: parsed.error?.message || 'API error' })}\n\n`);
-                  res.end();
-                }
-              } catch(e) { /* skip */ }
-            }
+              }
+              if (evt.type === 'message_stop') {
+                clearInterval(heartbeat);
+                res.write(`data: ${JSON.stringify({ type: 'done', fullText })}\n\n`);
+                res.end();
+              }
+              if (evt.type === 'error') {
+                clearInterval(heartbeat);
+                res.write(`data: ${JSON.stringify({ type: 'error', message: evt.error?.message || 'API error' })}\n\n`);
+                res.end();
+              }
+            } catch(e) { /* skip */ }
           }
         });
 
@@ -133,7 +130,7 @@ const server = http.createServer((req, res) => {
   res.end('Not found');
 });
 
-server.timeout = 0; // No timeout - streaming handles this
+server.timeout = 0;
 server.listen(PORT, () => {
   console.log(`Contxt server running on port ${PORT}`);
 });
