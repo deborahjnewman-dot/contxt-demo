@@ -24,6 +24,15 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ error: 'API key not configured' }) 
     };
   }
+  
+  // Debug - remove after testing
+  if (ANTHROPIC_API_KEY.length < 20) {
+    return {
+      statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: 'Key too short: ' + ANTHROPIC_API_KEY.length + ' chars' })
+    };
+  }
 
   let body;
   try {
