@@ -87,10 +87,12 @@ const server = http.createServer((req, res) => {
               try {
                 const parsed = JSON.parse(data);
                 // Collect text deltas
-                if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
-                  fullText += parsed.delta.text;
-                  // Send progress to client
-                  res.write(`data: ${JSON.stringify({ type: 'progress', text: parsed.delta.text })}\n\n`);
+                if (parsed.type === 'content_block_delta') {
+                  const text = parsed.delta?.text || parsed.delta?.partial_json || '';
+                  if (text) {
+                    fullText += text;
+                    res.write(`data: ${JSON.stringify({ type: 'progress', text })}\n\n`);
+                  }
                 }
                 // Stream done
                 if (parsed.type === 'message_stop') {
