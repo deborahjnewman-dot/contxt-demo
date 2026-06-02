@@ -237,7 +237,7 @@ CRITICAL RULES:
 - Keep each fact tight - one clear sentence per point
 - All sources must be real and verifiable
 
-OUTPUT FORMAT - respond ONLY with valid JSON, no other text:
+OUTPUT FORMAT - respond ONLY with valid JSON, no other text, no markdown, no backticks, no explanation before or after. The entire response must be parseable JSON starting with { and ending with }. Keep all text values short to avoid JSON errors:
 {
   "topic": "Short plain-language title (e.g. US Drug Boat Strikes)",
   "tag": "Category · Region · Key actor (e.g. U.S. Military · Latin America · Drug War)",
@@ -346,10 +346,19 @@ async function generateBrief() {
       .map(b => b.text)
       .join('');
 
-    // Extract JSON
-    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    // Extract JSON - clean it up first
+    let jsonMatch = fullText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON in response');
-    const brief = JSON.parse(jsonMatch[0]);
+    let jsonStr = jsonMatch[0];
+    // Fix common JSON issues from the model
+    jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+    let brief;
+    try {
+      brief = JSON.parse(jsonStr);
+    } catch(e) {
+      // Try to extract partial JSON
+      throw new Error('Brief format error - please try again');
+    }
 
     renderBrief(brief);
 
