@@ -66,6 +66,8 @@ exports.handler = async function(event, context) {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
+        console.log('API status:', res.statusCode);
+        console.log('API response:', data.substring(0, 500));
         resolve({
           statusCode: 200,
           headers: {
