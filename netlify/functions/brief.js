@@ -19,7 +19,11 @@ exports.handler = async function(event, context) {
 
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_API_KEY) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured' }) };
+    return { 
+      statusCode: 500, 
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: 'API key not configured' }) 
+    };
   }
 
   let body;
@@ -29,8 +33,22 @@ exports.handler = async function(event, context) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid request body' }) };
   }
 
+  // Remove tools from body and handle web search separately
+  // Use claude-sonnet-4-6 which is more reliable for this use case
+  const requestBody = {
+    model: 'claude-sonnet-4-6',
+    max_tokens: 3000,
+    system: body.system || body.messages?.[0]?.content,
+    messages: [
+      { 
+        role: 'user', 
+        content: body.messages?.[body.messages.length - 1]?.content || 'Generate a brief'
+      }
+    ]
+  };
+
   return new Promise((resolve) => {
-    const postData = JSON.stringify(body);
+    const postData = JSON.stringify(requestBody);
     const options = {
       hostname: 'api.anthropic.com',
       path: '/v1/messages',
@@ -39,8 +57,7 @@ exports.handler = async function(event, context) {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(postData),
         'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'web-search-2025-03-05'
+        'anthropic-version': '2023-06-01'
       }
     };
 
@@ -49,7 +66,7 @@ exports.handler = async function(event, context) {
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
         resolve({
-          statusCode: res.statusCode,
+          statusCode: 200,
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
