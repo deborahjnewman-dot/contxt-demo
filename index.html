@@ -224,11 +224,50 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark-bg);color
 </div>
 
 <script>
-const SYSTEM_PROMPT = `You are Contxt. Respond with ONLY a JSON object, nothing else. No markdown. No explanation. Start with { end with }.
+const SYSTEM_PROMPT = `You are Contxt, a structured news briefing system. Research the given topic and respond with ONLY a valid JSON object. No markdown, no backticks, no explanation. Start with { and end with }.
 
-{"topic":"string","tag":"string","confirmed":{"headline":"string","facts":[{"bold":"string","text":"string","source":"string","url":"string"}]},"claimed":{"headline":"string","positions":[{"bold":"string","text":"string","quote":"string","attribution":"string","source":"string","url":"string"}]},"disputed":{"headline":"string","fights":[{"question":"string","side1":"string","side1_source":"string","side1_url":"string","side2":"string","side2_source":"string","side2_url":"string"}]},"unknown":{"headline":"string","gaps":[{"bold":"string","text":"string","source":"string","url":"string"}]},"sources":[{"flag":"string","name":"string","url":"string"}]}
+RULES:
+- Never issue verdicts or show bias
+- Quotes must be 100% verbatim
+- Bold leads each sentence (use the "bold" field for the opening phrase)
+- No em-dashes, no colons after names
+- Keep facts tight and clear
+- Max 3 items per array section
+- Each text field max 25 words
+- Use real, verifiable sources
 
-Rules: max 2 items per array. Each string max 12 words. Quotes verbatim but keep short.`;
+Respond with this exact JSON structure:
+{
+  "topic": "Short plain title",
+  "tag": "Category · Region",
+  "confirmed": {
+    "headline": "What the record shows",
+    "facts": [
+      {"bold": "Opening bold phrase", "text": "rest of sentence", "source": "Source name, date", "url": "https://..."}
+    ]
+  },
+  "claimed": {
+    "headline": "What each side says",
+    "positions": [
+      {"bold": "Entity name + position", "text": "detail", "quote": "verbatim quote or empty string", "attribution": "name, title, date", "source": "source", "url": "https://..."}
+    ]
+  },
+  "disputed": {
+    "headline": "The core fights",
+    "fights": [
+      {"question": "The disputed question", "side1": "first position", "side1_source": "source", "side1_url": "https://...", "side2": "second position", "side2_source": "source", "side2_url": "https://..."}
+    ]
+  },
+  "unknown": {
+    "headline": "What no one can answer yet",
+    "gaps": [
+      {"bold": "What is unknown", "text": "why it is unknown", "source": "", "url": ""}
+    ]
+  },
+  "sources": [
+    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."}
+  ]
+}`;
 
 function setTopic(el) {
   document.getElementById('topicInput').value = el.textContent;
@@ -262,7 +301,7 @@ async function generateBrief() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Brief for: "${topic}". JSON only.` }]
+        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Use your knowledge of current events and credible sources. Return ONLY the JSON object. Max 3 items per section, each text field under 25 words.` }]
       })
     });
 
@@ -272,6 +311,11 @@ async function generateBrief() {
     if (!response.ok) throw new Error(`API error: ${response.status}`);
 
     const data = await response.json();
+    
+    // Handle API errors
+    if (data.error) throw new Error('API: ' + data.error.message);
+    if (!data.content) throw new Error('No content in response: ' + JSON.stringify(data).substring(0, 200));
+    
     const fullText = data.content
       .filter(b => b.type === 'text')
       .map(b => b.text)
