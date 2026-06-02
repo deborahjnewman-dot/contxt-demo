@@ -1,7 +1,6 @@
 const https = require('https');
 
 exports.handler = async function(event, context) {
-  // Set context to not wait for empty event loop
   context.callbackWaitsForEmptyEventLoop = false;
 
   if (event.httpMethod === 'OPTIONS') {
@@ -24,15 +23,6 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ error: 'API key not configured' }) 
     };
   }
-  
-  // Debug - remove after testing
-  if (ANTHROPIC_API_KEY.length < 20) {
-    return {
-      statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: 'Key too short: ' + ANTHROPIC_API_KEY.length + ' chars' })
-    };
-  }
 
   let body;
   try {
@@ -45,7 +35,7 @@ exports.handler = async function(event, context) {
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
     system: body.system,
-    tools: [{ type: 'web_search_20260209', name: 'web_search' }]
+    tools: [{ type: 'web_search_20260209', name: 'web_search' }],
     messages: body.messages
   };
 
@@ -66,8 +56,6 @@ exports.handler = async function(event, context) {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
-        console.log('API status:', res.statusCode);
-        console.log('API response:', data.substring(0, 500));
         resolve({
           statusCode: 200,
           headers: {
