@@ -1,7 +1,6 @@
 const https = require('https');
 
 exports.handler = async function(event, context) {
-  // Set context to not wait for empty event loop
   context.callbackWaitsForEmptyEventLoop = false;
 
   if (event.httpMethod === 'OPTIONS') {
@@ -33,8 +32,8 @@ exports.handler = async function(event, context) {
   }
 
   const requestBody = {
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 2000,
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
     system: body.system,
     messages: body.messages
   };
