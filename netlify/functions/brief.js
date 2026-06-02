@@ -45,6 +45,7 @@ exports.handler = async function(event, context) {
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
     system: body.system,
+    tools: [{ type: 'web_search_20250305', name: 'web_search' }],
     messages: body.messages
   };
 
@@ -58,6 +59,7 @@ exports.handler = async function(event, context) {
         'Content-Type': 'application/json',
         'x-api-key': ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
+        'anthropic-beta': 'web-search-2025-03-05'
       }
     };
 
