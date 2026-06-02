@@ -301,7 +301,7 @@ async function generateBrief() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Use your knowledge of current events and credible sources. Return ONLY the JSON object. Max 3 items per section, each text field under 25 words.` }]
+        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Search for the most recent information available. Prioritize sources from 2026. Return ONLY the JSON object. Max 3 items per section, each text field under 25 words.`}]
       })
     });
 
