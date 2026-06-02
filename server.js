@@ -37,9 +37,11 @@ const server = http.createServer((req, res) => {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
+      console.log('Received body length:', body.length);
+      console.log('Body preview:', body.substring(0, 100));
       let parsed;
       try { parsed = JSON.parse(body); }
-      catch(e) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid request' })); return; }
+      catch(e) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid request: ' + e.message })); return; }
 
       const requestBody = JSON.stringify({
         model: 'claude-sonnet-4-6',
