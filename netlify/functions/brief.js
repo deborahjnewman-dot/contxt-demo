@@ -1,6 +1,9 @@
 const https = require('https');
 
 exports.handler = async function(event, context) {
+  // Set context to not wait for empty event loop
+  context.callbackWaitsForEmptyEventLoop = false;
+
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -11,10 +14,6 @@ exports.handler = async function(event, context) {
       },
       body: ''
     };
-  }
-
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method not allowed' };
   }
 
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -30,21 +29,14 @@ exports.handler = async function(event, context) {
   try {
     body = JSON.parse(event.body);
   } catch(e) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid request body' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid request' }) };
   }
 
-  // Remove tools from body and handle web search separately
-  // Use claude-sonnet-4-6 which is more reliable for this use case
   const requestBody = {
-    model: 'claude-sonnet-4-6',
-    max_tokens: 3000,
-    system: body.system || body.messages?.[0]?.content,
-    messages: [
-      { 
-        role: 'user', 
-        content: body.messages?.[body.messages.length - 1]?.content || 'Generate a brief'
-      }
-    ]
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 2000,
+    system: body.system,
+    messages: body.messages
   };
 
   return new Promise((resolve) => {
