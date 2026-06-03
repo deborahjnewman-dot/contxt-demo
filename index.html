@@ -307,7 +307,7 @@ async function generateBrief() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Search for the most recent information available. Prioritize sources from 2026. Return ONLY raw JSON. First character must be {. Last character must be }. No other text before or after. Search AP, Reuters, BBC, Al Jazeera, and official government sources first.` }]
+        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Search for the most recent information available. Prioritize sources from 2026. Return ONLY raw JSON. First character must be {. Last character must be }. No other text before or after. Search AP, Reuters, BBC, Al Jazeera, and official government sources first. Be concise. Each field maximum 20 words. }]
       })
     });
 
