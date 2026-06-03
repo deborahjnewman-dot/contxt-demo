@@ -236,6 +236,7 @@ RULES:
 - Your ENTIRE response must be valid JSON starting with { and ending with }. Zero other text.
 - Each text field max 25 words
 - Use real, verifiable sources
+- Sources array must contain between 4 and 6 items. Never fewer than 4
 
 Respond with this exact JSON structure:
 {
@@ -265,7 +266,11 @@ Respond with this exact JSON structure:
       {"bold": "What is unknown", "text": "why it is unknown", "source": "", "url": ""}
     ]
   },
-  "sources": [
+"sources": [
+    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."},
+    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."},
+    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."},
+    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."},
     {"flag": "🇺🇸", "name": "Source description", "url": "https://..."}
   ]
 }`;
