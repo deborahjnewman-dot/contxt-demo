@@ -348,7 +348,7 @@ async function generateBrief() {
       brief = JSON.parse(fullText.trim());
     } catch(e1) {
       const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON in response');
+      if (!jsonMatch) throw new Error('No JSON. Length: ' + fullText.length + ' Preview: ' + fullText.substring(0, 150));
       brief = JSON.parse(jsonMatch[0]);
     }
 
