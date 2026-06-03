@@ -520,13 +520,15 @@ function renderBrief(b) {
   `);
 
   document.getElementById('screen-brief').classList.add('visible');
-const waitForSlides = setInterval(() => {
-  const slides = document.querySelectorAll('.slide');
-  if (slides.length === 6) {
-    clearInterval(waitForSlides);
-    goTo(0);
-  }
-}, 50);
+setTimeout(() => {
+  const waitForSlides = setInterval(() => {
+    const slides = document.querySelectorAll('.slide');
+    if (slides.length === 6) {
+      clearInterval(waitForSlides);
+      goTo(0);
+    }
+  }, 50);
+}, 100);
 }
 
 function addSlide(deck, i, cls, html) {
