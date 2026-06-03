@@ -544,7 +544,7 @@ let cur = 0, tx = 0, ty = 0, drag = false;
 function goTo(n) {
   const slides = document.querySelectorAll('.slide');
   const total = slides.length;
-  if (n < 0 || n >= total || n === cur) return;
+  if (n < 0 || n >= total) return;
 
   slides[cur].style.opacity = '0';
   const old = cur;
