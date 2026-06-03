@@ -233,6 +233,7 @@ RULES:
 - No em-dashes, no colons after names
 - Keep facts tight and clear
 - Max 3 items per array section
+- Your ENTIRE response must be valid JSON starting with { and ending with }. Zero other text.
 - Each text field max 25 words
 - Use real, verifiable sources
 
@@ -301,7 +302,7 @@ async function generateBrief() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Search for the most recent information available. Prioritize sources from 2026. Return ONLY the JSON object. Max 3 items per section, each text field under 25 words.` }]
+        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Search for the most recent information available. Prioritize sources from 2026. Return ONLY raw JSON. First character must be {. Last character must be }. No other text before or after.` }]
       })
     });
 
