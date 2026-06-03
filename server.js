@@ -45,7 +45,7 @@ const server = http.createServer((req, res) => {
 
       const requestBody = JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
+        max_tokens: 3000,
         stream: true,
         system: parsed.system,
         tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 1 }],
