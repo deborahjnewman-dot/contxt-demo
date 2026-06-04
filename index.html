@@ -586,19 +586,6 @@ function goTo(n) {
   prev.disabled = cur === 0;
   next.disabled = cur === total - 1;
 }
-  const logo = document.getElementById('logo');
-  const snum = document.getElementById('snum');
-  const prev = document.getElementById('prev');
-  const next = document.getElementById('next');
-
-  logo.style.color = dark ? 'rgba(247,244,239,0.6)' : '';
-  snum.style.color = dark ? 'rgba(247,244,239,0.6)' : '';
-  prev.className = `nbtn ${dark ? 'nbtn-dark' : 'nbtn-light'}`;
-  next.className = `nbtn ${dark ? 'nbtn-dark' : 'nbtn-light'}`;
-  snum.textContent = `${cur + 1} / ${total}`;
-  prev.disabled = cur === 0;
-  next.disabled = cur === total - 1;
-});
 
 function nav(d) { goTo(cur + d); }
 
