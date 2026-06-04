@@ -348,7 +348,12 @@ async function generateBrief() {
       brief = JSON.parse(fullText.trim());
     } catch(e1) {
       const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON. Length: ' + fullText.length + ' Preview: ' + fullText.substring(0, 150));
+      if (!jsonMatch) {
+  if (fullText.includes('rate-limited') || fullText.includes('rate limited') || fullText.includes('search') && fullText.includes('error')) {
+    throw new Error('Search unavailable right now. Please try again in a moment.');
+  }
+  throw new Error('No JSON. Length: ' + fullText.length + ' Preview: ' + fullText.substring(0, 150));
+}
       brief = JSON.parse(jsonMatch[0]);
     }
 
