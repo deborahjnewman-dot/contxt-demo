@@ -551,9 +551,11 @@ function goTo(n) {
   const total = slides.length;
   if (n < 0 || n >= total) return;
 
-  slides[cur].style.opacity = '0';
-  const old = cur;
-  setTimeout(() => { slides[old].classList.remove('active'); slides[old].style.opacity = ''; slides[old].style.pointerEvents = ''; }, 450);
+  if (cur !== n) {
+    slides[cur].style.opacity = '0';
+    const old = cur;
+    setTimeout(() => { slides[old].classList.remove('active'); slides[old].style.opacity = ''; }, 450);
+  }
 
   cur = n;
   slides[cur].classList.add('active');
@@ -584,6 +586,19 @@ function goTo(n) {
   prev.disabled = cur === 0;
   next.disabled = cur === total - 1;
 }
+  const logo = document.getElementById('logo');
+  const snum = document.getElementById('snum');
+  const prev = document.getElementById('prev');
+  const next = document.getElementById('next');
+
+  logo.style.color = dark ? 'rgba(247,244,239,0.6)' : '';
+  snum.style.color = dark ? 'rgba(247,244,239,0.6)' : '';
+  prev.className = `nbtn ${dark ? 'nbtn-dark' : 'nbtn-light'}`;
+  next.className = `nbtn ${dark ? 'nbtn-dark' : 'nbtn-light'}`;
+  snum.textContent = `${cur + 1} / ${total}`;
+  prev.disabled = cur === 0;
+  next.disabled = cur === total - 1;
+});
 
 function nav(d) { goTo(cur + d); }
 
