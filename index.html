@@ -237,6 +237,7 @@ RULES:
 - Each text field max 25 words
 - Use real, verifiable sources. Prioritize AP, Reuters, BBC, Al Jazeera, The Guardian, and official government and UN sources. Avoid blogs, opinion sites, and unverified sources.
 - Sources array must contain between 4 and 6 items. Never fewer than 4
+- Every claimed position MUST include a verbatim quote. If no verbatim quote exists in your search results, do not include that position.
 
 Respond with this exact JSON structure:
 {
@@ -251,7 +252,7 @@ Respond with this exact JSON structure:
   "claimed": {
     "headline": "What each side says",
     "positions": [
-      {"bold": "Entity name + position", "text": "detail", "quote": "verbatim quote or empty string", "attribution": "name, title, date", "source": "source", "url": "https://..."}
+      {"bold": "Entity name + position", "text": "detail", "quote": "verbatim quote — required, must be exact words", "attribution": "name, title, date", "source": "source", "url": "https://..."}
     ]
   },
   "disputed": {
