@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 110" width="340" height="110" role="img" aria-label="Contxt">
-  <defs>
-    <style>@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@500&amp;display=swap'); .wm{font-family:'DM Mono',ui-monospace,monospace;}</style>
-  </defs>
-  <g transform="translate(22,13) scale(0.808)">
-    <path d="M18,18 Q42,15 66,18 L47,52 L66,86 Q42,89 18,86 L37,52 Z M31,26 Q42,24 53,26 C48,33 46,42 43.5,51 C46,61 48,70 53,78 Q42,80 31,78 C36,70 38,61 40.5,51 C38,42 36,33 31,26 Z" fill="#F7F4EF" fill-rule="evenodd"/>
-  </g>
-  <text class="wm" x="108" y="70" font-size="44" font-weight="500" letter-spacing="5" fill="#F7F4EF">CONTXT</text>
-</svg>
