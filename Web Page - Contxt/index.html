@@ -45,8 +45,19 @@
       padding: 18px 60px;
       display: flex;
       align-items: center;
-      justify-content: flex-start;
+      justify-content: space-between;
     }
+    .nav-link {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: rgba(247,244,239,0.6);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-link:hover { color: var(--paper); }
 
     /* ── HERO ── */
     .hero {
@@ -357,6 +368,7 @@
       </g>
       <text x="108" y="70" font-size="44" font-weight="500" letter-spacing="5" fill="#F7F4EF" font-family="'DM Mono', monospace">CONTXT</text>
     </svg>
+    <a href="/about" class="nav-link">About</a>
   </header>
 
   <!-- 1. HERO -->
