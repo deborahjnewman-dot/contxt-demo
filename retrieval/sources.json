@@ -1,0 +1,40 @@
+{
+  "searches": [
+    {
+      "label": "US Government",
+      "query": "site:whitehouse.gov OR site:state.gov OR site:defense.gov",
+      "priority": "high",
+      "source_type": "government"
+    },
+    {
+      "label": "UN and International Bodies",
+      "query": "site:un.org OR site:ohchr.org OR site:icc-cpi.int",
+      "priority": "high",
+      "source_type": "government"
+    },
+    {
+      "label": "Trump Statements",
+      "query": "Trump statement site:whitehouse.gov OR site:truthsocial.com",
+      "priority": "high",
+      "source_type": "government"
+    },
+    {
+      "label": "International Leaders",
+      "query": "statement press conference world leaders site:reuters.com",
+      "priority": "high",
+      "source_type": "government"
+    },
+    {
+      "label": "AP and Reuters",
+      "query": "site:apnews.com OR site:reuters.com",
+      "priority": "high",
+      "source_type": "news"
+    },
+    {
+      "label": "Al Jazeera and BBC",
+      "query": "site:aljazeera.com OR site:bbc.com",
+      "priority": "high",
+      "source_type": "news"
+    }
+  ]
+}

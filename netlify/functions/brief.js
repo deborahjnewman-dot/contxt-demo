@@ -1,4 +1,6 @@
-const https = require('https');
+const { createAnthropicClient } = require('../../anthropic');
+const { buildModelRequest } = require('../../brief-request');
+const { createLogger } = require('../../logger');
 
 exports.handler = async function(event, context) {
   context.callbackWaitsForEmptyEventLoop = false;
@@ -31,51 +33,33 @@ exports.handler = async function(event, context) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid request' }) };
   }
 
-  const requestBody = {
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
-    system: body.system,
-    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 1 }],
-    messages: body.messages
-  };
+  const logger = createLogger({ service: 'contxt-netlify' });
+  const topic = String(body.topic || '').trim();
+  if (!topic) {
+    return {
+      statusCode: 400,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: 'topic is required' })
+    };
+  }
 
-  return new Promise((resolve) => {
-    const postData = JSON.stringify(requestBody);
-    const options = {
-      hostname: 'api.anthropic.com',
-      path: '/v1/messages',
-      method: 'POST',
+  try {
+    const requestBody = await buildModelRequest(topic, logger);
+    const fullText = await createAnthropicClient(ANTHROPIC_API_KEY).collectMessage(requestBody);
+    return {
+      statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      }
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: fullText
     };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        resolve({
-          statusCode: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          },
-          body: data
-        });
-      });
-    });
-
-    req.on('error', (err) => {
-      resolve({
-        statusCode: 500,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: err.message })
-      });
-    });
-
-    req.write(postData);
-    req.end();
-  });
+  } catch (err) {
+    logger.error({ topic, error: err.message }, 'brief function failed');
+    return {
+      statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: err.message })
+    };
+  }
 };
