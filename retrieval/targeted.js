@@ -91,6 +91,10 @@ async function articleToSource(article, search, index, logger) {
     logger.debug({ label: search.label, url: article.url, error: extracted.error }, 'targeted article extraction skipped');
     return null;
   }
+  if (!String(extracted.value.extractedText || '').trim()) {
+    logger.debug({ label: search.label, url: article.url }, 'targeted article extraction empty; source skipped');
+    return null;
+  }
 
   const source = {
     source_name: search.label,
@@ -107,7 +111,13 @@ async function articleToSource(article, search, index, logger) {
   };
 
   const translated = await translateToEnglish(source, logger);
-  return translated.ok ? translated.value : source;
+  const finalSource = translated.ok ? translated.value : source;
+  if (!String(finalSource.extracted_text || '').trim()) {
+    logger.debug({ label: search.label, url: article.url }, 'targeted article content empty after fetch; source skipped');
+    return null;
+  }
+
+  return finalSource;
 }
 
 module.exports = { fetchTargetedSources };

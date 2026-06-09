@@ -2,6 +2,7 @@ const { ok } = require('./result');
 
 const PRIORITY_WEIGHT = { high: 3, medium: 2, low: 1 };
 const MAX_SOURCE_TEXT_CHARS = 8000;
+const MAX_SOURCES_PER_DOMAIN = 3;
 
 function formatForModel(topic, resultSets) {
   const merged = resultSets.flat();
@@ -9,11 +10,11 @@ function formatForModel(topic, resultSets) {
 
   for (const source of merged) {
     if (!source.url || byUrl.has(source.url)) continue;
+    if (!hasSourceContent(source)) continue;
     byUrl.set(source.url, source);
   }
 
-  const sources = [...byUrl.values()]
-    .sort(compareSources)
+  const sources = capSourcesPerDomain([...byUrl.values()].sort(compareSources))
     .slice(0, 15);
 
   const internationalFound = sources.some(hasInternationalCoverage);
@@ -22,6 +23,7 @@ function formatForModel(topic, resultSets) {
   return ok({
     sources,
     sourceCount: sources.length,
+    contentSourceCount: sources.filter(hasSourceContent).length,
     quoteCount: sources.reduce((count, source) => count + source.quotes.length, 0),
     internationalFound,
     packageText
@@ -43,6 +45,31 @@ function toTimestamp(value) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+function capSourcesPerDomain(sources) {
+  const counts = new Map();
+  const capped = [];
+
+  for (const source of sources) {
+    const domain = sourceDomain(source.url);
+    if (domain) {
+      const count = counts.get(domain) || 0;
+      if (count >= MAX_SOURCES_PER_DOMAIN) continue;
+      counts.set(domain, count + 1);
+    }
+    capped.push(source);
+  }
+
+  return capped;
+}
+
+function sourceDomain(url) {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+  } catch (error) {
+    return '';
+  }
+}
+
 function hasInternationalCoverage(source) {
   if (source.language !== 'en' || source.translated) return true;
 
@@ -56,6 +83,10 @@ function hasInternationalCoverage(source) {
     'reuters.com',
     'international'
   ].some((signal) => haystack.includes(signal));
+}
+
+function hasSourceContent(source) {
+  return String(source.extracted_text || '').trim().length > 0;
 }
 
 function buildPackageText(topic, sources, internationalFound) {
@@ -109,4 +140,4 @@ function limitSourceText(text) {
   return `${value.slice(0, MAX_SOURCE_TEXT_CHARS)}\n[Source text truncated by server: ${value.length} characters total]`;
 }
 
-module.exports = { formatForModel };
+module.exports = { formatForModel, hasSourceContent, capSourcesPerDomain, sourceDomain };

@@ -45,6 +45,17 @@ exports.handler = async function(event, context) {
 
   try {
     const requestBody = await buildModelRequest(topic, logger);
+    if (requestBody.status === 'no_coverage') {
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify(requestBody)
+      };
+    }
+
     const fullText = await createAnthropicClient(ANTHROPIC_API_KEY).collectMessage(requestBody);
     return {
       statusCode: 200,

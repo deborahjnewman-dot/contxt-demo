@@ -79,6 +79,14 @@ const server = http.createServer((req, res) => {
 
       try {
         const modelRequest = await buildModelRequest(topic, logger);
+        if (modelRequest.status === 'no_coverage') {
+          const fullText = JSON.stringify(modelRequest);
+          res.write(`data: ${JSON.stringify({ type: 'done', fullText })}\n\n`);
+          res.end();
+          clearInterval(heartbeat);
+          return;
+        }
+
         await anthropic.streamMessages(modelRequest, res, (fullText) => {
           setCachedBrief(topic, normalizeBriefJsonText(fullText));
         });
@@ -118,6 +126,12 @@ const server = http.createServer((req, res) => {
 
       try {
         const modelRequest = await buildModelRequest(topic, logger);
+        if (modelRequest.status === 'no_coverage') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(modelRequest));
+          return;
+        }
+
         const fullText = await anthropic.collectMessage(modelRequest);
         const normalizedText = normalizeBriefJsonText(fullText);
         setCachedBrief(topic, normalizedText);

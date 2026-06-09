@@ -1,10 +1,8 @@
 const { fetchTargetedSources } = require('./targeted');
-const { fetchGdeltSources } = require('./gdelt');
 const { formatForModel } = require('./format');
 const { ok } = require('./result');
 
 const TARGETED_BUDGET_MS = Number(process.env.TARGETED_BUDGET_MS) || 4500;
-const GDELT_BUDGET_MS = Number(process.env.GDELT_BUDGET_MS) || 3000;
 
 function withBudget(promise, budgetMs, label, logger) {
   return new Promise((resolve) => {
@@ -28,19 +26,12 @@ async function retrieveSources(topic, logger) {
   const startedAt = Date.now();
   const retrievalLogger = logger.child({ unit: 'retrieval', topic });
 
-  const [gdeltResult, targetedResult] = await Promise.all([
-    withBudget(
-      fetchGdeltSources(topic, retrievalLogger.child({ source: 'gdelt' })),
-      GDELT_BUDGET_MS, 'gdelt', retrievalLogger
-    ),
-    withBudget(
-      fetchTargetedSources(topic, retrievalLogger.child({ source: 'targeted' })),
-      TARGETED_BUDGET_MS, 'targeted', retrievalLogger
-    )
-  ]);
+  const targetedResult = await withBudget(
+    fetchTargetedSources(topic, retrievalLogger.child({ source: 'targeted' })),
+    TARGETED_BUDGET_MS, 'targeted', retrievalLogger
+  );
 
   const resultSets = [
-    gdeltResult.ok ? gdeltResult.value : [],
     targetedResult.ok ? targetedResult.value : []
   ];
   const formatted = formatForModel(topic, resultSets);
@@ -52,6 +43,20 @@ async function retrieveSources(topic, logger) {
     quote_count: formatted.value.quoteCount,
     international_found: formatted.value.internationalFound
   }, 'retrieval completed');
+
+  if (formatted.value.contentSourceCount < 2) {
+    retrievalLogger.warn({
+      content_source_count: formatted.value.contentSourceCount
+    }, 'insufficient sourced content; skipping model generation');
+
+    return ok({
+      status: 'no_coverage',
+      message: 'Insufficient sources found for this topic.',
+      sourceCount: formatted.value.sourceCount,
+      contentSourceCount: formatted.value.contentSourceCount,
+      elapsedMs
+    });
+  }
 
   return ok({
     ...formatted.value,
