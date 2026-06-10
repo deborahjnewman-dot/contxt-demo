@@ -306,6 +306,10 @@ async function generateBrief() {
       brief = JSON.parse(jsonMatch[0]);
     }
 
+    if (brief.status === 'no_coverage') {
+      throw new Error(brief.message || 'Not enough sourced coverage was found for this topic. Try a more specific topic.');
+    }
+
     clearInterval(statusInterval);
     document.getElementById('loadingScreen').classList.remove('visible');
     renderBrief(brief);

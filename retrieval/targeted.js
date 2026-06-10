@@ -7,6 +7,10 @@ const { ok } = require('./result');
 
 const SOURCES_PATH = path.join(__dirname, 'sources.json');
 const BRAVE_SEARCH_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search';
+const MAX_TARGETED_SEARCHES = Number(process.env.MAX_TARGETED_SEARCHES) || 14;
+const BRAVE_RESULT_COUNT = Number(process.env.BRAVE_RESULT_COUNT) || 4;
+const MAX_ARTICLES_PER_SEARCH = Number(process.env.MAX_ARTICLES_PER_SEARCH) || 3;
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 function readSourceConfig(logger) {
   try {
@@ -19,7 +23,7 @@ function readSourceConfig(logger) {
 }
 
 async function fetchTargetedSources(topic, logger) {
-  const searches = readSourceConfig(logger);
+  const searches = selectSearches(readSourceConfig(logger));
   if (!process.env.BRAVE_SEARCH_API_KEY) {
     logger.warn({ search_count: searches.length }, 'brave search api key unavailable');
     return ok([]);
@@ -37,16 +41,27 @@ async function fetchSearchSources(topic, search, logger) {
   const searchResult = await queryBraveSearch(query, logger);
   if (!searchResult.ok) return [];
 
-  const sources = await Promise.all(searchResult.value.map((article, index) => {
+  const articles = searchResult.value.slice(0, MAX_ARTICLES_PER_SEARCH);
+  const sources = await Promise.all(articles.map((article, index) => {
     return articleToSource(article, search, index, logger);
   }));
   return sources.filter(Boolean);
 }
 
+function selectSearches(searches) {
+  return [...searches]
+    .sort((a, b) => {
+      const priority = (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9);
+      if (priority !== 0) return priority;
+      return String(a.label || '').localeCompare(String(b.label || ''));
+    })
+    .slice(0, MAX_TARGETED_SEARCHES);
+}
+
 async function queryBraveSearch(query, logger) {
   const params = new URLSearchParams({
     q: query,
-    count: '6',
+    count: String(BRAVE_RESULT_COUNT),
     freshness: 'pm',
     spellcheck: '1',
     search_lang: 'en'
@@ -120,4 +135,4 @@ async function articleToSource(article, search, index, logger) {
   return finalSource;
 }
 
-module.exports = { fetchTargetedSources };
+module.exports = { fetchTargetedSources, selectSearches };

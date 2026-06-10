@@ -2,7 +2,7 @@ const { fetchTargetedSources } = require('./targeted');
 const { formatForModel } = require('./format');
 const { ok } = require('./result');
 
-const TARGETED_BUDGET_MS = Number(process.env.TARGETED_BUDGET_MS) || 4500;
+const TARGETED_BUDGET_MS = Number(process.env.TARGETED_BUDGET_MS) || 12000;
 
 function withBudget(promise, budgetMs, label, logger) {
   return new Promise((resolve) => {
@@ -51,6 +51,7 @@ async function retrieveSources(topic, logger) {
 
     return ok({
       status: 'no_coverage',
+      topic,
       message: 'Insufficient sources found for this topic.',
       sourceCount: formatted.value.sourceCount,
       contentSourceCount: formatted.value.contentSourceCount,
