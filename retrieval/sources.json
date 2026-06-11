@@ -1,0 +1,241 @@
+{
+  "searches": [
+    {
+      "label": "AP",
+      "query": "site:apnews.com",
+      "priority": "high",
+      "source_type": "news"
+    },
+    {
+      "label": "Reuters",
+      "query": "site:reuters.com",
+      "priority": "high",
+      "source_type": "news"
+    },
+    {
+      "label": "BBC",
+      "query": "site:bbc.com",
+      "priority": "high",
+      "source_type": "news"
+    },
+    {
+      "label": "Al Jazeera",
+      "query": "site:aljazeera.com",
+      "priority": "high",
+      "source_type": "news"
+    },
+    {
+      "label": "US Government",
+      "query": "site:whitehouse.gov OR site:state.gov OR site:defense.gov",
+      "priority": "high",
+      "source_type": "government"
+    },
+    {
+      "label": "Trump Statements",
+      "query": "Trump statement site:whitehouse.gov",
+      "priority": "medium",
+      "source_type": "government"
+    },
+    {
+      "label": "US Courts and Legal",
+      "query": "site:courtlistener.com OR site:justia.com OR site:congress.gov",
+      "priority": "low",
+      "source_type": "government"
+    },
+    {
+      "label": "UN and International Bodies",
+      "query": "site:un.org OR site:ohchr.org OR site:icc-cpi.int",
+      "priority": "high",
+      "source_type": "government"
+    },
+    {
+      "label": "NATO",
+      "query": "site:nato.int",
+      "priority": "medium",
+      "source_type": "government"
+    },
+    {
+      "label": "Global Organizations",
+      "query": "site:who.int OR site:fifa.com OR site:olympics.com OR site:nasa.gov",
+      "priority": "low",
+      "source_type": "government"
+    },
+    {
+      "label": "Israeli and Palestinian Official",
+      "query": "site:gov.il OR site:mfa.gov.il OR site:wafa.ps",
+      "priority": "medium",
+      "source_type": "government"
+    },
+    {
+      "label": "Egypt Foreign Ministry",
+      "query": "site:mfa.gov.eg",
+      "priority": "medium",
+      "source_type": "government"
+    },
+    {
+      "label": "Iran Official (State Media)",
+      "query": "site:irangov.ir OR site:irna.ir",
+      "priority": "medium",
+      "source_type": "government",
+      "state_media": true
+    },
+    {
+      "label": "Ukraine Official",
+      "query": "site:president.gov.ua OR site:mfa.gov.ua",
+      "priority": "medium",
+      "source_type": "government"
+    },
+    {
+      "label": "Russia Official (State Media)",
+      "query": "site:kremlin.ru OR site:mid.ru",
+      "priority": "low",
+      "source_type": "government",
+      "state_media": true
+    },
+    {
+      "label": "India and Pakistan Official",
+      "query": "site:mea.gov.in OR site:mofa.gov.pk",
+      "priority": "medium",
+      "source_type": "government"
+    },
+    {
+      "label": "China Official (State Media)",
+      "query": "site:fmprc.gov.cn/eng OR site:xinhuanet.com",
+      "priority": "low",
+      "source_type": "government",
+      "state_media": true
+    },
+    {
+      "label": "Haaretz",
+      "query": "site:haaretz.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "Times of Israel",
+      "query": "site:timesofisrael.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "Middle East Eye",
+      "query": "site:middleeasteye.net",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "Asharq Al-Awsat",
+      "query": "site:aawsat.com",
+      "priority": "low",
+      "source_type": "news"
+    },
+    {
+      "label": "Kyiv Independent",
+      "query": "site:kyivindependent.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "Meduza",
+      "query": "site:meduza.io",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "Dawn",
+      "query": "site:dawn.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "The Hindu",
+      "query": "site:thehindu.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "NDTV",
+      "query": "site:ndtv.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "Geo.tv",
+      "query": "site:geo.tv",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "South China Morning Post",
+      "query": "site:scmp.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "Nikkei Asia",
+      "query": "site:asia.nikkei.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "AFP",
+      "query": "site:afp.com",
+      "priority": "high",
+      "source_type": "news"
+    },
+    {
+      "label": "Deutsche Welle",
+      "query": "site:dw.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "France 24",
+      "query": "site:france24.com",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "NHK World",
+      "query": "site:nhk.or.jp/nhkworld",
+      "priority": "medium",
+      "source_type": "news"
+    },
+    {
+      "label": "Human Rights Watch",
+      "query": "site:hrw.org",
+      "priority": "medium",
+      "source_type": "civil_society"
+    },
+    {
+      "label": "Amnesty International",
+      "query": "site:amnesty.org",
+      "priority": "medium",
+      "source_type": "civil_society"
+    },
+    {
+      "label": "ICRC",
+      "query": "site:icrc.org",
+      "priority": "medium",
+      "source_type": "civil_society"
+    },
+    {
+      "label": "ACLU",
+      "query": "site:aclu.org",
+      "priority": "low",
+      "source_type": "civil_society"
+    },
+    {
+      "label": "Stars and Stripes",
+      "query": "site:stripes.com",
+      "priority": "low",
+      "source_type": "news"
+    },
+    {
+      "label": "Military Times",
+      "query": "site:militarytimes.com",
+      "priority": "low",
+      "source_type": "news"
+    }
+  ]
+}

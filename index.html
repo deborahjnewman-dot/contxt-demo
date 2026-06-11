@@ -224,57 +224,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark-bg);color
 </div>
 
 <script>
-const SYSTEM_PROMPT = `You are Contxt, a structured news briefing system. Research the given topic and respond with ONLY a valid JSON object. No markdown, no backticks, no explanation. Start with { and end with }.
-
-RULES:
-- Never issue verdicts or show bias
-- Quotes must be 100% verbatim
-- Bold leads each sentence (use the "bold" field for the opening phrase)
-- No em-dashes, no colons after names
-- Keep facts tight and clear
-- Max 3 items per array section
-- Your ENTIRE response must be valid JSON starting with { and ending with }. Zero other text. If you cannot complete the full JSON, output what you have and close all brackets properly.
-- Each text field max 25 words
-- Use real, verifiable sources. Prioritize AP, Reuters, BBC, Al Jazeera, The Guardian, and official government and UN sources. Avoid blogs, opinion sites, and unverified sources.
-- Sources array must contain between 4 and 6 items. Never fewer than 4
-- Every claimed position MUST include a verbatim quote. If no verbatim quote exists in your search results, do not include that position.
-
-Respond with this exact JSON structure:
-{
-  "topic": "Short plain title",
-  "tag": "Category · Region",
-  "confirmed": {
-    "headline": "What the record shows",
-    "facts": [
-      {"bold": "Opening bold phrase", "text": "rest of sentence", "source": "Source name, date", "url": "https://..."}
-    ]
-  },
-  "claimed": {
-    "headline": "What each side says",
-    "positions": [
-      {"bold": "Entity name + position", "text": "detail", "quote": "verbatim quote — required, must be exact words", "attribution": "name, title, date", "source": "source", "url": "https://..."}
-    ]
-  },
-  "disputed": {
-    "headline": "The core fights",
-    "fights": [
-      {"question": "The disputed question", "side1": "first position", "side1_source": "source", "side1_url": "https://...", "side2": "second position", "side2_source": "source", "side2_url": "https://..."}
-    ]
-  },
-  "unknown": {
-    "headline": "What no one can answer yet",
-    "gaps": [
-      {"bold": "What is unknown", "text": "why it is unknown", "source": "", "url": ""}
-    ]
-  },
-"sources": [
-    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."},
-    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."},
-    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."},
-    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."},
-    {"flag": "🇺🇸", "name": "Source description", "url": "https://..."}
-  ]
-}`;
+// The system prompt and output schema now live on the backend (single source of
+// truth, see brief-request.js). The frontend only sends the topic.
 
 function setTopic(el) {
   document.getElementById('topicInput').value = el.textContent;
@@ -301,15 +252,22 @@ async function generateBrief() {
 
   const statusInterval = showLoading(topic);
   document.getElementById('screen-input').classList.add('hidden');
+  const controller = new AbortController();
+  // Idle timeout, not a total cap: the server streams heartbeats every 15s
+  // while it works, and each received chunk resets the deadline.
+  const IDLE_TIMEOUT_MS = 40000;
+  let timeout = setTimeout(() => controller.abort(), IDLE_TIMEOUT_MS);
+  const resetIdleTimeout = () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => controller.abort(), IDLE_TIMEOUT_MS);
+  };
 
   try {
     const response = await fetch('/brief', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Create a Contxt brief for this topic: "${topic}". Search for the most recent information available. Prioritize sources from 2026. Return ONLY raw JSON. First character must be {. Last character must be }. No other text before or after. Search AP, Reuters, BBC, Al Jazeera, and official government sources first. Be concise. Each field maximum 20 words.` }]
-      })
+      body: JSON.stringify({ topic }),
+      signal: controller.signal
     });
 
     if (!response.ok) throw new Error('Server error: ' + response.status);
@@ -322,6 +280,7 @@ async function generateBrief() {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      resetIdleTimeout();
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop();
@@ -358,16 +317,25 @@ async function generateBrief() {
       brief = JSON.parse(jsonMatch[0]);
     }
 
+    if (brief.status === 'no_coverage') {
+      throw new Error(brief.message || 'Not enough sourced coverage was found for this topic. Try a more specific topic.');
+    }
+
     clearInterval(statusInterval);
+    clearTimeout(timeout);
     document.getElementById('loadingScreen').classList.remove('visible');
     renderBrief(brief);
 
   } catch (err) {
     clearInterval(statusInterval);
+    clearTimeout(timeout);
     document.getElementById('loadingScreen').classList.remove('visible');
     document.getElementById('screen-input').classList.remove('hidden');
     btn.disabled = false;
-    alert('Error: ' + err.message);
+    const message = err.name === 'AbortError'
+      ? 'Request timed out. Please check that the local server is running and try again.'
+      : err.message;
+    alert('Error: ' + message);
     console.error(err);
   }
 }
@@ -632,129 +600,40 @@ const DEMO_BRIEF = {
   "confirmed": {
     "headline": "What the record shows",
     "facts": [
-      {
-        "bold": "205 people killed",
-        "text": "in 50+ U.S. military strikes since Sept. 2025.",
-        "source": "U.S. Southern Command, May 30, 2026",
-        "url": "https://www.southcom.mil/News/PressReleases/Article/4504873/lethal-kinetic-strike-may-30-2026/"
-      },
-      {
-        "bold": "Colombia recalled its ambassador to the U.S.",
-        "text": "in October 2025 amid rising tensions over military boat strikes.",
-        "source": "Colombia Embassy to U.S., Oct. 20, 2025",
-        "url": "https://x.com/ColombiaEmbUSA/status/1980274372578328668"
-      },
-      {
-        "bold": "Families of two dead civilians are suing for wrongful death.",
-        "text": "Both victims were Trinidadian nationals with no ties to drug trafficking organizations.",
-        "source": "ACLU case filing, Jan. 27, 2026",
-        "url": "https://www.aclu.org/cases/burnley-v-united-states"
-      }
+      { "bold": "205 people killed", "text": "in 50+ U.S. military strikes since Sept. 2025. No names, nationalities, or evidence of drug cargo released for any strike.", "source": "SOUTHCOM · AP tally, May 31, 2026", "url": "https://www.southcom.mil" },
+      { "bold": "Colombia suspended intelligence sharing with the U.S.", "text": "and withdrew its ambassador in Nov. 2025, cutting off a decades-long counternarcotics partnership.", "source": "AP · NBC News, Nov. 2025", "url": "https://www.nbcnews.com" },
+      { "bold": "Families of two dead civilians are suing the U.S. for wrongful death.", "text": "Both were Trinidadian farm workers with no confirmed links to drug activity.", "source": "ACLU · Center for Constitutional Rights, Jan. 2026", "url": "https://www.aclu.org" }
     ]
   },
   "claimed": {
     "headline": "What each side says",
     "positions": [
-      {
-        "bold": "Strikes target narco-terrorists",
-        "text": "according to the Trump administration.",
-        "quote": "We've only just begun striking narco-boats and putting narcoterrorists at the bottom of the ocean because they've been poisoning the American people.",
-        "attribution": "Secretary of Defense Pete Hegseth, Cabinet meeting, Dec. 2, 2025",
-        "source": "White House Cabinet meeting video",
-        "url": "https://www.youtube.com/watch?v=kGgX8Xxh5RA"
-      },
-      {
-        "bold": "President Petro says strikes are unlawful executions of civilians without trial",
-        "text": "violating international law and Colombian sovereignty.",
-        "quote": "All the same, it is murder. The U.S. government's strategy violates the norms of international law.",
-        "attribution": "President Gustavo Petro, X post, Oct. 19, 2025",
-        "source": "Gustavo Petro on X",
-        "url": "https://x.com/petrogustavo/status/1979700160608206983"
-      }
+      { "bold": "The Trump administration says the strikes are a legal war on narco-terrorists", "text": "and that drug flows by sea are down 97%.", "quote": "These are narco-terrorists killing Americans. We will find them and we will destroy them.", "attribution": "Sec. of Defense Pete Hegseth, Pentagon briefing, Oct. 2025", "source": "Pentagon · SOUTHCOM statements", "url": "https://www.defense.gov" },
+      { "bold": "Colombia's President Petro calls it murder and a violation of international law,", "text": "saying innocent civilians have been killed.", "quote": "All the same, it is murder. The U.S. government's strategy violates the norms of international law.", "attribution": "President Gustavo Petro, posted on X, Oct. 2025", "source": "CBS News exclusive · Petro on X", "url": "https://www.cbsnews.com" }
     ]
   },
   "disputed": {
-    "headline": "The core fights",
+    "headline": "The two core fights",
     "fights": [
-      {
-        "question": "Are targets members of terrorist organizations or civilians?",
-        "side1": "Admin: All targets affiliated with designated terrorist organizations. Intelligence confirmed vessel was engaged in narco-trafficking operations.",
-        "side1_source": "SOUTHCOM, May 30, 2026",
-        "side1_url": "https://www.southcom.mil/News/PressReleases/Article/4504873/lethal-kinetic-strike-may-30-2026/",
-        "side2": "Critics: Admin provides no evidence. Documented cases show civilians killed — fishermen, farm workers with no terrorist ties.",
-        "side2_source": "Human Rights Watch, Dec. 9, 2025",
-        "side2_url": "https://www.hrw.org/news/2025/12/09/us-other-countries-should-push-back-on-lawless-executions-at-sea"
-      },
-      {
-        "question": "Are the strikes reducing drug supply to the U.S.?",
-        "side1": "Admin claims drug flows by sea down 97% due to strikes and Coast Guard enforcement.",
-        "side1_source": "White House, Jan. 29, 2026",
-        "side1_url": "https://www.democrats.senate.gov/newsroom/trump-transcripts/transcript-president-trump-announces-efforts-to-combat-drug-addiction-12926",
-        "side2": "Coast Guard seizures increased 200% in FY2025. Both metrics measure interdictions, not actual drugs reaching the country.",
-        "side2_source": "U.S. Coast Guard, Oct. 15, 2025",
-        "side2_url": "https://www.dhs.gov/news/2025/10/15/us-coast-guards-operation-pacific-viper-records-seizure-100000-pounds-cocaine"
-      }
+      { "question": "Are the strikes legal under international law?", "side1": "DOJ declared the strikes a legal armed conflict.", "side1_source": "Human Rights Watch, Dec. 2025", "side1_url": "https://www.hrw.org", "side2": "UN, HRW, ACLU agree: killing at sea without trial is extrajudicial execution.", "side2_source": "Just Security", "side2_url": "https://www.justsecurity.org" },
+      { "question": "Are the strikes reducing drug supply to the U.S.?", "side1": "Coast Guard seizures up 200%, drug flows by sea down 97%.", "side1_source": "SOUTHCOM, FY2025", "side1_url": "https://www.southcom.mil", "side2": "Border seizures up 16%, street prices unchanged. Both cite real numbers measuring different things.", "side2_source": "The Intercept, May 2026", "side2_url": "https://theintercept.com" }
     ]
   },
   "unknown": {
     "headline": "What no one can answer yet",
     "gaps": [
-      {
-        "bold": "Who was killed?",
-        "text": "Identities not released for most strikes.",
-        "source": "SOUTHCOM press releases",
-        "url": "https://www.southcom.mil/News/PressReleases/Article/4504873/lethal-kinetic-strike-may-30-2026/"
-      },
-      {
-        "bold": "What intelligence justified each strike.",
-        "text": "No specific intelligence released. SOUTHCOM states pattern language only: vessel transiting known narco-trafficking routes.",
-        "source": "SOUTHCOM press releases",
-        "url": "https://www.southcom.mil/News/PressReleases/Article/4504873/lethal-kinetic-strike-may-30-2026/"
-      },
-      {
-        "bold": "Whether strikes face legal review.",
-        "text": "ACLU lawsuit Burnley v. U.S. is first domestic court ruling on legality. Ongoing.",
-        "source": "ACLU case page",
-        "url": "https://www.aclu.org/cases/burnley-v-united-states"
-      }
+      { "bold": "Who was killed.", "text": "The identities of those killed have not been released. No names, nationalities, or evidence of drug cargo has been made available for any strike.", "source": "", "url": "" },
+      { "bold": "What intelligence justified each strike.", "text": "The basis for each strike has not been made public. U.S. announcements state 'intelligence confirmed' with no further detail.", "source": "", "url": "" },
+      { "bold": "Whether the strikes will face legal review.", "text": "The ACLU lawsuit Burnley v. U.S. would be the first domestic court ruling on their legality. Ongoing.", "source": "ACLU · CCR", "url": "https://www.aclu.org" }
     ]
   },
   "sources": [
-    {
-      "flag": "🇺🇸",
-      "name": "U.S. Southern Command, official strike announcements",
-      "url": "https://www.southcom.mil/News/PressReleases/Article/4504873/lethal-kinetic-strike-may-30-2026/"
-    },
-    {
-      "flag": "🇺🇸",
-      "name": "Associated Press, May 31, 2026",
-      "url": "https://apnews.com/article/boat-strikes-drug-trafficking-us-military-525f68b1cd8be48a890e4fdc6ea13087"
-    },
-    {
-      "flag": "🇨🇴",
-      "name": "Colombia Embassy to the United States",
-      "url": "https://x.com/ColombiaEmbUSA/status/1980274372578328668"
-    },
-    {
-      "flag": "🇺🇸",
-      "name": "NPR, Oct. 20, 2025",
-      "url": "https://www.npr.org/2025/10/20/nx-s1-5580247/colombia-recalls-ambassador-to-u-s-amid-deadly-boat-strikes-and-diplomatic-clash"
-    },
-    {
-      "flag": "🇺🇸",
-      "name": "GBH News · ACLU, Jan. 27, 2026",
-      "url": "https://www.wgbh.org/news/national/2026-01-27/families-of-killed-men-file-first-u-s-federal-lawsuit-over-drug-boat-strikes"
-    },
-    {
-      "flag": "🌎",
-      "name": "Human Rights Watch, Dec. 9, 2025",
-      "url": "https://www.hrw.org/news/2025/12/09/us-other-countries-should-push-back-on-lawless-executions-at-sea"
-    },
-    {
-      "flag": "🇺🇸",
-      "name": "The Intercept, May 4, 2026",
-      "url": "https://theintercept.com"
-    }
+    { "flag": "🇺🇸", "name": "U.S. Southern Command, official strike announcements", "url": "https://www.southcom.mil" },
+    { "flag": "🇺🇳", "name": "UN High Commissioner for Human Rights, Oct. 2025", "url": "https://www.ohchr.org" },
+    { "flag": "🌎", "name": "Human Rights Watch, legal analysis, Dec. 2025", "url": "https://www.hrw.org" },
+    { "flag": "🇨🇴", "name": "President Gustavo Petro, CBS News exclusive", "url": "https://www.cbsnews.com" },
+    { "flag": "🇺🇸", "name": "ACLU, Burnley v. U.S. complaint, Jan. 2026", "url": "https://www.aclu.org" },
+    { "flag": "🇺🇸", "name": "The Intercept, drug supply analysis, May 2026", "url": "https://theintercept.com" }
   ]
 };
 
