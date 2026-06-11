@@ -12,11 +12,13 @@ const MAX_EXTRACTED_CHARS = 12000;
 function decodeEntities(text) {
   return text
     .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
+    .replace(/&gt;/g, '>')
+    // Decode &amp; last so double-escaped entities (&amp;lt;) resolve to their
+    // literal form (&lt;) instead of being decoded twice into markup (<).
+    .replace(/&amp;/g, '&');
 }
 
 function cleanText(text) {
@@ -112,11 +114,17 @@ function extractArticle(html) {
     return err({ code: 'extracted_text_too_large', chars: extractedText.length });
   }
 
+  // Extract quotes from the full article body, not just the first 3 paragraphs.
+  // On-record quotes usually appear below the lede, so trimming first starved
+  // the Claimed section of verbatim quotes.
+  const fullText = allParagraphs.join('\n\n');
+
   const title = (viaReadability && viaReadability.title) || extractTitle(html);
   return ok({
     title,
     extractedText,
-    quotes: extractQuotes(extractedText),
+    wordCount: fullWordCount,
+    quotes: extractQuotes(fullText),
     language: isLikelyEnglish(extractedText) ? 'en' : 'auto'
   });
 }
@@ -140,20 +148,100 @@ function isLikelyBinary(text) {
   return sample.length > 0 && (replacementChars + controlChars) / sample.length > 0.05;
 }
 
+// Matched-pair quote patterns. The capture group forbids newlines so a quote
+// cannot be stitched across paragraphs, and straight/curly marks must match
+// their own kind so a stray opening mark cannot fabricate a quote.
+const QUOTE_PATTERNS = [/"([^"\n]{20,280})"/g, /[“]([^”\n]{20,280})[”]/g];
+
 function extractQuotes(text) {
-  return [...text.matchAll(/["“]([^"”]{20,280})["”]/g)]
+  const value = String(text || '');
+  const matches = [];
+  for (const pattern of QUOTE_PATTERNS) {
+    for (const match of value.matchAll(pattern)) matches.push(match);
+  }
+
+  return matches
+    .filter((match) => contentSize(match[1]) >= 10)
+    .sort((a, b) => a.index - b.index)
     .slice(0, 3)
-    .map((match) => ({
-      text: cleanText(match[1]),
-      speaker: '',
-      context: ''
-    }));
+    .map((match) => {
+      const context = quoteContext(value, match.index, match[0].length, cleanText(match[1]));
+      return {
+        text: cleanText(match[1]),
+        speaker: inferSpeaker(context.before, context.after),
+        context: context.sentence
+      };
+    });
 }
 
-// Decides only "is this English?" — DeepL auto-detects the actual source language
-// when we translate, so a binary call here is all that's needed. Returns false for
-// non-Latin scripts (Cyrillic/Arabic/CJK/etc.) and for Latin text with a low
-// English-stopword density (Spanish, French, German, Portuguese, ...).
+function quoteContext(text, quoteStart, quoteLength, quoteText) {
+  const value = String(text || '');
+  const quoteEnd = quoteStart + quoteLength;
+  const paragraphStart = Math.max(value.lastIndexOf('\n\n', quoteStart), 0);
+  const nextBreak = value.indexOf('\n\n', quoteEnd);
+  const paragraphEnd = nextBreak === -1 ? value.length : nextBreak;
+  const paragraph = cleanText(value.slice(paragraphStart, paragraphEnd));
+  const before = cleanText(value.slice(Math.max(0, quoteStart - 220), quoteStart));
+  const after = cleanText(value.slice(quoteEnd, Math.min(value.length, quoteEnd + 220)));
+
+  return {
+    before,
+    after,
+    sentence: sentenceAroundQuote(paragraph, quoteText)
+  };
+}
+
+function sentenceAroundQuote(paragraph, quoteText) {
+  // Locate the matched quote itself, not just the first quote mark in the
+  // paragraph, so the context sentence is right when a paragraph holds
+  // several quotes.
+  const quoteIndex = quoteText ? paragraph.indexOf(quoteText) : -1;
+  const anchor = quoteIndex !== -1 ? quoteIndex : paragraph.search(/["“]/);
+  if (anchor === -1) return paragraph.slice(0, 260);
+
+  const start = Math.max(
+    paragraph.lastIndexOf('. ', anchor),
+    paragraph.lastIndexOf('? ', anchor),
+    paragraph.lastIndexOf('! ', anchor)
+  );
+  const endCandidates = ['. ', '? ', '! ']
+    .map((marker) => paragraph.indexOf(marker, anchor + 1))
+    .filter((index) => index !== -1);
+  const end = endCandidates.length ? Math.min(...endCandidates) + 1 : paragraph.length;
+  return cleanText(paragraph.slice(start === -1 ? 0 : start + 2, end)).slice(0, 320);
+}
+
+function inferSpeaker(before, after) {
+  const afterPatterns = [
+    /^(?:said|says|stated|wrote|posted|told|added)\s+([A-Z][A-Za-z0-9 .'-]{2,80})/i,
+    /^([A-Z][A-Za-z0-9 .'-]{2,80})\s+(?:said|says|stated|wrote|posted|told|added)/i
+  ];
+  const beforePatterns = [
+    /([A-Z][A-Za-z0-9 .'-]{2,80})\s+(?:said|says|stated|wrote|posted|told|added)[, ]*$/i,
+    /according to\s+([A-Z][A-Za-z0-9 .'-]{2,80})[, ]*$/i
+  ];
+
+  for (const pattern of afterPatterns) {
+    const match = after.match(pattern);
+    if (match) return cleanSpeaker(match[1]);
+  }
+  for (const pattern of beforePatterns) {
+    const match = before.match(pattern);
+    if (match) return cleanSpeaker(match[1]);
+  }
+  return '';
+}
+
+function cleanSpeaker(value) {
+  return cleanText(value)
+    .replace(/\s+(on|in|during|after|before|when|while)\b[\s\S]*$/i, '')
+    .replace(/[,.;:]+$/, '')
+    .slice(0, 90);
+}
+
+// Decides only "is this likely English?" so the model package can flag original
+// source language. The LLM reads multilingual source text directly and writes
+// the final brief in English.
 const NON_LATIN_PATTERN = /[Ѐ-ӿ؀-ۿ֐-׿一-鿿぀-ヿ가-힯Ͱ-Ͽ฀-๿]/g;
 const ENGLISH_STOPWORDS = [
   'the', 'and', 'of', 'to', 'in', 'is', 'that', 'for', 'it', 'with', 'as', 'was',
@@ -172,4 +260,4 @@ function isLikelyEnglish(text) {
   return hits / tokens.length > 0.08;
 }
 
-module.exports = { extractArticle, isLikelyEnglish, contentSize, isLikelyBinary };
+module.exports = { extractArticle, extractQuotes, isLikelyEnglish, contentSize, isLikelyBinary, MIN_EXTRACTED_WORDS };

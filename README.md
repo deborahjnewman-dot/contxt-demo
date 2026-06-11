@@ -5,9 +5,8 @@
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) v18 or later
-- An [Anthropic API key](https://console.anthropic.com/)
+- An [OpenRouter API key](https://openrouter.ai/)
 - A [Brave Search API key](https://brave.com/search/api/)
-- A [DeepL API URL](https://www.deepl.com/en/pro-api) (for translation support)
 
 ### Installation
 
@@ -33,9 +32,8 @@
 4. Fill in your credentials in `.env`:
 
    ```
-   ANTHROPIC_API_KEY=your_anthropic_api_key
+   OPENROUTER_API_KEY=your_openrouter_api_key
    BRAVE_SEARCH_API_KEY=your_brave_search_api_key
-   DEEPL_API_URL=your_deepl_api_url
    ```
 
 ### Running locally

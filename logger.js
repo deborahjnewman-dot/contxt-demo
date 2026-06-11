@@ -4,12 +4,14 @@ function createLogger(bindings = {}) {
   function write(level, message, fields = {}) {
     if (level === 'debug' && !debugEnabled) return;
 
+    // message comes right after level/time so each line leads with what happened,
+    // followed by the contextual fields (topic, counts, errors).
     const entry = {
       level,
       time: new Date().toISOString(),
+      message,
       ...bindings,
-      ...sanitize(fields),
-      message
+      ...sanitize(fields)
     };
     const line = `${JSON.stringify(entry)}\n`;
     if (level === 'error') process.stderr.write(line);

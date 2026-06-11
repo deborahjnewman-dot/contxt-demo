@@ -1,6 +1,7 @@
-const { createAnthropicClient } = require('../../anthropic');
+const { createLlmClient } = require('../../llm');
 const { buildModelRequest } = require('../../brief-request');
 const { createLogger } = require('../../logger');
+const { prepareBriefOutput } = require('../../brief-output');
 
 exports.handler = async function(event, context) {
   context.callbackWaitsForEmptyEventLoop = false;
@@ -17,8 +18,8 @@ exports.handler = async function(event, context) {
     };
   }
 
-  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!ANTHROPIC_API_KEY) {
+  const LLM_API_KEY = process.env.OPENROUTER_API_KEY;
+  if (!LLM_API_KEY) {
     return { 
       statusCode: 500, 
       headers: { 'Access-Control-Allow-Origin': '*' },
@@ -56,14 +57,18 @@ exports.handler = async function(event, context) {
       };
     }
 
-    const fullText = await createAnthropicClient(ANTHROPIC_API_KEY).collectMessage(requestBody);
+    const fullText = await createLlmClient(LLM_API_KEY).collectMessage(requestBody);
+    const prepared = prepareBriefOutput(fullText);
+    if (!prepared.ok) {
+      throw new Error(prepared.error);
+    }
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-      body: fullText
+      body: prepared.text
     };
   } catch (err) {
     logger.error({ topic, error: err.message }, 'brief function failed');

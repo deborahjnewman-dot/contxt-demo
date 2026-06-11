@@ -252,12 +252,22 @@ async function generateBrief() {
 
   const statusInterval = showLoading(topic);
   document.getElementById('screen-input').classList.add('hidden');
+  const controller = new AbortController();
+  // Idle timeout, not a total cap: the server streams heartbeats every 15s
+  // while it works, and each received chunk resets the deadline.
+  const IDLE_TIMEOUT_MS = 40000;
+  let timeout = setTimeout(() => controller.abort(), IDLE_TIMEOUT_MS);
+  const resetIdleTimeout = () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => controller.abort(), IDLE_TIMEOUT_MS);
+  };
 
   try {
     const response = await fetch('/brief', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic })
+      body: JSON.stringify({ topic }),
+      signal: controller.signal
     });
 
     if (!response.ok) throw new Error('Server error: ' + response.status);
@@ -270,6 +280,7 @@ async function generateBrief() {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      resetIdleTimeout();
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop();
@@ -311,15 +322,20 @@ async function generateBrief() {
     }
 
     clearInterval(statusInterval);
+    clearTimeout(timeout);
     document.getElementById('loadingScreen').classList.remove('visible');
     renderBrief(brief);
 
   } catch (err) {
     clearInterval(statusInterval);
+    clearTimeout(timeout);
     document.getElementById('loadingScreen').classList.remove('visible');
     document.getElementById('screen-input').classList.remove('hidden');
     btn.disabled = false;
-    alert('Error: ' + err.message);
+    const message = err.name === 'AbortError'
+      ? 'Request timed out. Please check that the local server is running and try again.'
+      : err.message;
+    alert('Error: ' + message);
     console.error(err);
   }
 }
